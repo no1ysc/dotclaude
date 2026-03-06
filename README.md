@@ -1,20 +1,22 @@
 # dotclaude
 
-> `.claude/` 폴더를 public repo에서 완전히 숨기면서, 메인 레포의 모든 git 동작과 자동으로 동기화하는 훅 모음
+> [🇰🇷 한국어로 보기 (Read in Korean)](README_KO.md)
+
+> A collection of git hooks that completely hides the `.claude/` folder from the public repo while automatically synchronizing it with all git operations of the main repo.
 
 ---
 
-## 배경과 철학
+## Background and Philosophy
 
-Claude Code는 `.claude/rules/` 디렉토리를 재귀적으로 스캔하여 작업 중인 모듈의 컨텍스트를 자동으로 주입한다.
-이 특성을 활용하면, 모노레포의 실제 폴더 구조를 `.claude/rules/` 안에 그대로 미러링하는 것이 가능하다.
+Claude Code automatically injects context by recursively scanning the `.claude/rules/` directory for the module you are working on.
+By leveraging this feature, you can mirror the actual folder structure of a monorepo directly inside `.claude/rules/`.
 ```
 .claude/
 └── rules/
     └── packages/
         ├── frontend/
         │   ├── components/
-        │   │   └── button.md      ← packages/frontend/components/** 작업 시 자동 로드
+        │   │   └── button.md      ← Auto-loaded when working on packages/frontend/components/**
         │   └── hooks/
         │       └── auth.md
         └── backend/
@@ -22,176 +24,176 @@ Claude Code는 `.claude/rules/` 디렉토리를 재귀적으로 스캔하여 작
                 └── payment.md
 ```
 
-각 `.md` 파일에는 해당 모듈의 spec, 구현 규칙, 그리고 Claude에게 줄 컨텍스트를 담는다.
-path glob frontmatter를 붙이면 관련 없는 작업에는 로드되지 않아 **토큰 비용도 최소화**된다.
+Each `.md` file contains the spec, implementation rules, and context to provide to Claude for its respective module.
+By adding a path glob frontmatter, it prevents irrelevant rules from loading during tasks, thereby **minimizing token costs**.
 ```markdown
 ---
 paths:
   - "packages/frontend/components/**"
 ---
 
-# Button 컴포넌트 spec
+# Button Component Spec
 ...
 ```
 
-이 구조의 문제는 하나다.
-`.claude/rules/` 안에는 팀에 공개하고 싶지 않은 개인 노하우, 작업 방식, 프롬프트 전략이 담긴다.
-그렇다고 버저닝을 포기할 수는 없다. 브랜치마다, 기능마다 축적된 컨텍스트가 있기 때문이다.
+There is one problem with this structure.
+The `.claude/rules/` directory contains personal know-how, workflow habits, and prompt strategies that you might not want to share with the team.
+However, you can't abandon versioning because context accumulates with each branch and feature.
 
-**dotclaude는 이 문제를 해결한다.**
+**dotclaude solves this problem.**
 
-- `.claude/` 폴더 전체를 public repo에서 완전히 제거한다
-- 별도의 private repo에서 독립적으로 버저닝한다
-- 메인 레포의 commit, push, pull, checkout, rebase, stash, worktree 모든 동작에 자동으로 따라붙는다
-- 메인 레포의 .gitignore 의 설정에 따라 메인리포에 여전히 남겨 둘 수도 있다.
-- **public repo에 private repo의 흔적은 단 하나도 남지 않는다**
+- It completely removes the entire `.claude/` folder from the public repo.
+- It versions the folder independently in a separate private repo.
+- It automatically tracks all git actions of the main repo: commit, push, pull, checkout, rebase, stash, and worktree.
+- Depending on the `.gitignore` settings of the main repo, it can optionally be kept in the main repo.
+- **Not a single trace of the private repo remains in the public repo.**
 
 ---
 
-## public repo에 남는 것
+## What is left in the public repo
 
-설치 후 public repo에 추가되는 내용은 `.gitignore`의 한 줄뿐이다.
+After installation, the only thing added to the public repo is a single line in `.gitignore`.
 ```
 .claude/
 ```
 
-private repo의 URL, 훅 파일, wrapper 스크립트는 모두 아래 위치에만 존재한다.
+The private repo URL, hook files, and wrapper scripts strictly exist only in the following locations:
 
-| 항목 | 위치 | 버저닝 여부 |
+| Item | Location | Versioned By |
 |---|---|---|
-| `.claude/` 전체 | gitignore, 로컬에만 존재 | private repo |
-| git hooks | `.git/hooks/` (git이 버저닝 안 함) | — |
-| shell wrapper | `~/.claude-sync-wrapper.sh` (홈 디렉토리) | — |
+| Complete `.claude/` | gitignore, local only | private repo |
+| git hooks | `.git/hooks/` (git ignores this) | — |
+| shell wrapper | `~/.claude-sync-wrapper.sh` (home directory) | — |
 
 ---
 
-## 커버 범위
+## Coverage
 
-| git 작업 | 처리 방식 | 동작 |
+| Git Action | Handler | Behavior |
 |---|---|---|
-| `commit` | post-commit hook | .claude 변경사항 자동 커밋 |
-| `push` | pre-push hook | .claude도 함께 push |
-| `pull` / `merge` | post-merge hook | .claude도 함께 pull |
-| `checkout` | post-checkout hook | .claude 브랜치 동기화 |
-| `rebase` / `amend` | post-rewrite hook | .claude 커밋 정리 |
-| `fetch` | shell wrapper | .claude도 fetch |
-| `stash push/pop` | shell wrapper | .claude stash 동기화 |
-| `worktree add` | shell wrapper | 새 worktree에 .claude 초기화 |
-| `worktree remove` | shell wrapper | worktree .claude 정리 |
+| `commit` | post-commit hook | Auto-commits changes in .claude |
+| `push` | pre-push hook | Pushes .claude as well |
+| `pull` / `merge` | post-merge hook | Pulls .claude as well |
+| `checkout` | post-checkout hook | Synchronizes .claude branch |
+| `rebase` / `amend` | post-rewrite hook | Cleans up .claude commits |
+| `fetch` | shell wrapper | Fetches .claude as well |
+| `stash push/pop` | shell wrapper | Synchronizes .claude stash |
+| `worktree add` | shell wrapper | Initializes .claude in new worktree |
+| `worktree remove` | shell wrapper | Cleans up worktree .claude |
 
 ---
 
-## 설치
+## Installation
 
-### 요구사항
+### Requirements
 
-- git 2.x 이상
-- bash 또는 zsh
+- git 2.x or later
+- bash or zsh
 
-### 한 줄 설치
+### One-line Installation
 ```bash
 curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotclaude-sync/main/install.sh | bash
 ```
 
-private repo URL을 함께 전달하면 remote까지 한 번에 설정된다.
+Pass the private repo URL together to configure the remote instantly.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotclaude-sync/main/install.sh \
   | PRIVATE_REMOTE=git@github.com:you/private-claude.git bash
 ```
 
-설치 스크립트가 자동으로 처리하는 것들:
-- `.claude/` → `.gitignore` 추가
-  - 메인 레포의 .gitignore 의 설정에 따라 메인리포에 여전히 남겨 둘 수도 있다.
-- `.claude/` git repo 초기화 및 remote 설정
-- git hooks 5개 설치 (기존 훅 있으면 `.bak`으로 백업)
-- `~/.claude-sync-wrapper.sh` 생성
-- `~/.zshrc` 또는 `~/.bashrc`에 wrapper 자동 등록
-- 현재 브랜치로 `.claude/` 브랜치 즉시 동기화
+What the installation script automatically handles:
+- Adds `.claude/` to `.gitignore`
+  - Depending on the `.gitignore` config, it might be allowed to stay tracked if desired.
+- Initializes `.claude/` git repo and sets up the remote
+- Installs 5 git hooks (backs up existing hooks as `.bak`)
+- Creates `~/.claude-sync-wrapper.sh`
+- Auto-registers the wrapper in `~/.zshrc` or `~/.bashrc`
+- Instantly synchronizes the `.claude/` branch with the current branch
 
-### shell wrapper 적용
+### Applying Shell Wrapper
 
-설치 완료 후 한 번만 실행한다.
+Run this once after installation:
 ```bash
-source ~/.zshrc  # 또는 source ~/.bashrc
+source ~/.zshrc  # or source ~/.bashrc
 ```
 
-이후부터 `git` 명령어는 자동으로 `.claude/`를 함께 동기화한다.
+From now on, the `git` command will automatically synchronize `.claude/`.
 
 ---
 
-## 사용법
+## Usage
 
-설치 후에는 기존 git 워크플로우 그대로 사용하면 된다.
+After installation, simply stick to your normal git workflow.
 ```bash
-# 메인 레포 작업
+# Working in the main repo
 git add .
-git commit -m "feat: 버튼 컴포넌트 추가"
-# → post-commit hook이 .claude/도 자동 커밋
+git commit -m "feat: Add button component"
+# → post-commit hook automatically commits .claude/ too
 
 git push origin main
-# → pre-push hook이 .claude/도 자동 push
+# → pre-push hook automatically pushes .claude/ too
 
 git pull
-# → post-merge hook이 .claude/도 자동 pull
+# → post-merge hook automatically pulls .claude/ too
 
 git checkout -b feature/payment
-# → post-checkout hook이 .claude/도 같은 브랜치로 전환
+# → post-checkout hook switches .claude/ to the same branch
 
 git fetch origin
-# → shell wrapper가 .claude/도 fetch
+# → shell wrapper fetches .claude/ too
 
 git stash
-# → shell wrapper가 .claude/도 stash
+# → shell wrapper stashes .claude/ too
 
 git worktree add ../payment-worktree feature/payment
-# → shell wrapper가 새 worktree에 .claude/ 자동 초기화
+# → shell wrapper automatically initializes .claude/ in the new worktree
 ```
 
-### private repo 최초 연결
+### Initial Connection to Private Repo
 
-설치 후 처음 한 번만 실행한다.
+Run this once after installation.
 ```bash
-# remote가 설치 시 설정되지 않은 경우
+# If remote wasn't set during installation
 git -C .claude remote add origin git@github.com:you/private-claude.git
 
-# 최초 push
+# Initial push
 git -C .claude push -u origin main
 ```
 
-### 브랜치 수동 동기화
+### Manual Branch Synchronization
 
-훅이 어긋났거나 새 환경에서 맞춰야 할 때 사용한다.
+Use this when hooks fall out of sync or when matching a new environment.
 ```bash
-# 현재 메인 레포 브랜치로 맞추기
+# Match the current main repo branch
 git -C .claude checkout main
 
-# 또는 설치 스크립트를 다시 실행
+# Or simply re-run the install script
 curl -fsSL .../install.sh | bash
 ```
 
 ---
 
-## 새 환경 / 팀 합류 시
+## Setting up a New Environment / Joining a Team
 ```bash
-# 1. 메인 레포 clone
+# 1. Clone main repo
 git clone git@github.com:team/main-repo.git
 cd main-repo
 
-# 2. dotclaude-sync 설치
+# 2. Install dotclaude-sync
 curl -fsSL .../install.sh | PRIVATE_REMOTE=git@github.com:you/private-claude.git bash
 
-# 3. private repo에서 기존 .claude/ 복원
+# 3. Restore existing .claude/ from private repo
 git -C .claude pull origin main
 
-# 4. shell wrapper 적용
+# 4. Apply shell wrapper
 source ~/.zshrc
 ```
 
 ---
 
-## .claude/rules/ 구조 설계 예시 및 가이드
+## .claude/rules/ Structure Design Examples & Guidelines
 
-path glob frontmatter를 활용하면 불필요한 컨텍스트 로딩을 방지할 수 있다.
+Using path glob frontmatter prevents unnecessary context loading.
 ```markdown
 ---
 paths:
@@ -199,19 +201,19 @@ paths:
 ---
 ```
 
-glob 없이 작성한 파일은 세션 시작 시 항상 로드된다. 프로젝트 전역 규칙에 적합하다.
+Files authored without globs are always loaded at the start of a session. Suitable for global project rules.
 
-권장 구조:
+Recommended Structure:
 ```
 .claude/
-├── CLAUDE.md                         ← 프로젝트 전역 규칙 (항상 로드)
+├── CLAUDE.md                         ← Global project rules (always loaded)
 └── rules/
-    ├── conventions.md                ← 전역 코드 컨벤션 (항상 로드)
+    ├── conventions.md                ← Global code conventions (always loaded)
     └── packages/
         ├── frontend/
-        │   ├── index.md              ← frontend 전체 규칙
+        │   ├── index.md              ← General frontend rules
         │   ├── components/
-        │   │   └── *.md              ← 컴포넌트별 spec
+        │   │   └── *.md              ← Spec per component
         │   └── hooks/
         │       └── *.md
         └── backend/
@@ -222,12 +224,12 @@ glob 없이 작성한 파일은 세션 시작 시 항상 로드된다. 프로젝
 
 ---
 
-## 주의사항
+## Caveats
 
-- pull 충돌 시 로컬(내 작업) 우선 전략 적용
-- remote origin 미설정 시 push/pull은 조용히 스킵됨 (에러 없음)
-- 기존 git hook 있으면 `.bak`으로 백업 후 교체
-- worktree는 메인 `.claude/`를 local clone하여 독립적으로 구성됨
+- On pull conflicts, the local (ours) strategy is prioritized.
+- If remote origin is not configured, push/pull will be quietly skipped (no errors).
+- Existing git hooks are replaced after being backed up as `.bak`.
+- Worktrees are configured independently by locally cloning the main `.claude/`.
 
 ---
 

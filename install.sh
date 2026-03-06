@@ -1,9 +1,9 @@
 #!/bin/bash
 # =============================================================================
 # claude-sync installer
-# 사용법:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/claude-sync/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/claude-sync/main/install.sh | PRIVATE_REMOTE=git@github.com:you/private-claude.git bash
+# Usage:
+#   curl -fsSL https://github.com/no1ysc/dotclaude/main/install.sh | bash
+#   curl -fsSL https://github.com/no1ysc/dotclaude/main/install.sh | PRIVATE_REMOTE=git@github.com:you/private-claude.git bash
 # =============================================================================
 
 set -e
@@ -24,36 +24,36 @@ echo ""
 echo -e "${BOLD}claude-sync installer${RESET}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# ── 사전 확인 ─────────────────────────────────
-command -v git >/dev/null 2>&1 || err "git이 설치되어 있지 않습니다"
+# ── Prerequisites ─────────────────────────────
+command -v git >/dev/null 2>&1 || err "git is not installed"
 
 MAIN_REPO=$(git rev-parse --show-toplevel 2>/dev/null) \
-  || err "git 레포 안에서 실행해주세요"
+  || err "Please run inside a git repository"
 
 CLAUDE_DIR="$MAIN_REPO/.claude"
 HOOKS_DIR="$MAIN_REPO/.git/hooks"
 CURRENT_BRANCH=$(git -C "$MAIN_REPO" rev-parse --abbrev-ref HEAD)
 
-ok "메인 레포: $MAIN_REPO"
-ok "현재 브랜치: $CURRENT_BRANCH"
+ok "Main repo: $MAIN_REPO"
+ok "Current branch: $CURRENT_BRANCH"
 
 # ── .gitignore ────────────────────────────────
 GITIGNORE="$MAIN_REPO/.gitignore"
 if ! grep -qxF ".claude/" "$GITIGNORE" 2>/dev/null; then
   echo ".claude/" >> "$GITIGNORE"
-  ok ".claude/ → .gitignore 추가"
+  ok "Added .claude/ to .gitignore"
 else
-  info ".claude/ 이미 .gitignore에 있음"
+  info ".claude/ is already in .gitignore"
 fi
 
-# ── .claude/ git repo 초기화 ──────────────────
+# ── Initialize .claude/ git repo ─────────────
 mkdir -p "$CLAUDE_DIR"
 
 if [ ! -d "$CLAUDE_DIR/.git" ]; then
   git -C "$CLAUDE_DIR" init --quiet
-  ok ".claude/ git repo 초기화"
+  ok "Initialized .claude/ git repo"
 else
-  info ".claude/ 이미 git repo"
+  info ".claude/ is already a git repo"
 fi
 
 if [ -n "$PRIVATE_REMOTE" ]; then
@@ -64,25 +64,25 @@ if [ -n "$PRIVATE_REMOTE" ]; then
   fi
   ok "remote origin: $PRIVATE_REMOTE"
 else
-  warn "PRIVATE_REMOTE 미설정 — 나중에 추가: git -C .claude remote add origin <url>"
+  warn "PRIVATE_REMOTE not set — you can add it later: git -C .claude remote add origin <url>"
 fi
 
-# 브랜치 맞추기
+# Match branch
 git -C "$CLAUDE_DIR" checkout -b "$CURRENT_BRANCH" --quiet 2>/dev/null || \
   git -C "$CLAUDE_DIR" checkout "$CURRENT_BRANCH" --quiet 2>/dev/null || true
 
-# ── hooks 설치 ────────────────────────────────
+# ── Install hooks ────────────────────────────
 echo ""
-echo -e "${BOLD}hooks 설치 중...${RESET}"
+echo -e "${BOLD}Installing hooks...${RESET}"
 
 install_hook() {
   local NAME="$1"
   local DEST="$HOOKS_DIR/$NAME"
 
-  # 기존 훅 백업
+  # Backup existing hook
   if [ -f "$DEST" ] && ! grep -q "claude-sync" "$DEST" 2>/dev/null; then
     cp "$DEST" "${DEST}.bak"
-    info "기존 $NAME → ${NAME}.bak 백업"
+    info "Backed up existing $NAME to ${NAME}.bak"
   fi
 
   cat > "$DEST"
@@ -201,14 +201,14 @@ fi
 exit 0
 HOOK
 
-# ── git-wrapper.sh 생성 ───────────────────────
+# ── Create git-wrapper.sh ────────────────────
 WRAPPER_PATH="$HOME/.claude-sync-wrapper.sh"
 
 cat > "$WRAPPER_PATH" << 'WRAPPER'
 #!/bin/bash
 # claude-sync git wrapper
-# fetch / stash / worktree 동기화
-# source 경로: ~/.claude-sync-wrapper.sh
+# fetch / stash / worktree synchronization
+# source path: ~/.claude-sync-wrapper.sh
 
 git() {
   _claude_dir() {
@@ -277,7 +277,7 @@ WRAPPER
 
 ok "git-wrapper.sh → $WRAPPER_PATH"
 
-# ── shell rc 등록 여부 확인 ───────────────────
+# ── Check shell rc registration ──────────────
 SHELL_RC=""
 if [ -f "$HOME/.zshrc" ]; then
   SHELL_RC="$HOME/.zshrc"
@@ -291,40 +291,40 @@ if [ -n "$SHELL_RC" ]; then
   if ! grep -q "claude-sync" "$SHELL_RC" 2>/dev/null; then
     echo "" >> "$SHELL_RC"
     echo "$SOURCE_LINE" >> "$SHELL_RC"
-    ok "shell wrapper → $SHELL_RC 자동 등록"
+    ok "Auto-registered shell wrapper in $SHELL_RC"
   else
-    info "shell wrapper 이미 등록됨"
+    info "Shell wrapper is already registered"
   fi
 else
-  warn "shell rc 파일을 찾지 못했습니다. 아래를 수동으로 추가하세요:"
+  warn "Could not find a shell rc file. Please add this manually:"
   info "$SOURCE_LINE"
 fi
 
-# ── 브랜치 동기화 함수 (설치 후 수동 호출도 가능) ──
+# ── Branch sync function (can be called manually after install) ──
 claude_sync_branch() {
   local TARGET_BRANCH="${1:-}"
 
-  # 인자 없으면 현재 메인 레포 브랜치 사용
+  # If no argument, use current main repo branch
   if [ -z "$TARGET_BRANCH" ]; then
     TARGET_BRANCH=$(git -C "$MAIN_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null) \
-      || { warn "브랜치 감지 실패"; return 1; }
+      || { warn "Failed to detect branch"; return 1; }
   fi
 
   if [ ! -d "$CLAUDE_DIR/.git" ]; then
-    warn ".claude/ git repo 없음 - 먼저 설치를 완료하세요"
+    warn ".claude/ git repo not found - please complete installation first"
     return 1
   fi
 
   cd "$CLAUDE_DIR"
 
-  # 미커밋 변경사항 임시 저장
+  # Temporarily stash uncommitted changes
   local HAS_CHANGES=false
   if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
     git stash push --quiet -m "claude-sync branch-sync stash" 2>/dev/null
     HAS_CHANGES=true
   fi
 
-  # 브랜치 전환 (없으면 생성)
+  # Switch branch (create if not exists)
   if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
     git checkout "$TARGET_BRANCH" --quiet
   elif git remote get-url origin &>/dev/null && \
@@ -334,42 +334,42 @@ claude_sync_branch() {
     git checkout -b "$TARGET_BRANCH" --quiet
   fi
 
-  ok ".claude/ 브랜치 → $TARGET_BRANCH"
+  ok ".claude/ branch → $TARGET_BRANCH"
 
-  # remote에서 최신 pull
+  # Pull latest from remote
   if git remote get-url origin &>/dev/null; then
     git pull origin "$TARGET_BRANCH" --quiet --strategy-option=ours 2>/dev/null \
-      && ok ".claude/ pull 완료" || true
+      && ok ".claude/ pull complete" || true
   fi
 
-  # stash 복원
+  # Restore stash
   [ "$HAS_CHANGES" = true ] && git stash pop --quiet 2>/dev/null || true
 
   cd "$MAIN_REPO"
 }
 
-# 설치 마지막에 현재 브랜치로 즉시 동기화
+# Immediately sync with current branch at the end of installation
 echo ""
-echo -e "${BOLD}브랜치 동기화 중...${RESET}"
+echo -e "${BOLD}Syncing branch...${RESET}"
 claude_sync_branch "$CURRENT_BRANCH"
 
-# ── 완료 ─────────────────────────────────────
+# ── Complete ─────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${GREEN}${BOLD}설치 완료!${RESET}"
+echo -e "${GREEN}${BOLD}Installation Complete!${RESET}"
 echo ""
 if [ -n "$PRIVATE_REMOTE" ]; then
-  echo "  private repo 최초 push:"
+  echo "  First push to private repo:"
   echo -e "  ${BOLD}git -C .claude push -u origin $CURRENT_BRANCH${RESET}"
 else
-  echo "  private repo 연결:"
+  echo "  Connect to private repo:"
   echo -e "  ${BOLD}git -C .claude remote add origin git@github.com:YOU/private-claude.git${RESET}"
   echo -e "  ${BOLD}git -C .claude push -u origin $CURRENT_BRANCH${RESET}"
 fi
 echo ""
-echo "  shell wrapper 적용:"
+echo "  Apply shell wrapper:"
 echo -e "  ${BOLD}source ${SHELL_RC:-~/.zshrc}${RESET}"
 echo ""
-echo "  브랜치 수동 동기화 (필요시):"
-echo -e "  ${BOLD}git -C .claude checkout <브랜치명>${RESET}"
+echo "  Manual branch sync (if needed):"
+echo -e "  ${BOLD}git -C .claude checkout <branch_name>${RESET}"
 echo ""
